@@ -14,24 +14,43 @@ class bbPress_beta_tester {
 
 	function __construct() {
 		add_filter( 'http_response', array( $this, 'filter_http_response' ), 10, 3 );
+
+		// Doing this in plugins_loaded instead of directly here to make sure bbpress is loaded
 		add_action( 'plugins_loaded', array( $this, 'add_upgrade_warning' ) );
 	}
 
+	/**
+	 *  Clear the update_plugins transient on plugin activation/deactivation
+	 *  to add / remove our hijack.
+	 */
 	function reset_update_plugins_transient() {
 		delete_site_transient( 'update_plugins' );
 	}
 
+	/**
+	 *
+	 * Hijack the version check against WP.org and make our own check
+	 * against the latest version in trunk. If there's a newer trunk
+	 * version than the one the user has installed, force the update
+	 * notification.
+	 *
+	 * @param $response
+	 * @param $r
+	 * @param $url
+	 *
+	 * @return array
+	 */
 	function filter_http_response( $response, $r, $url ) {
 
-		if ( $url !== 'http://api.wordpress.org/plugins/update-check/1.0/' || !function_exists( 'bbpress' ) )
+		if ( $url !== 'http://api.wordpress.org/plugins/update-check/1.0/' )
 			return $response;
 
-		if ( $this->get_latest_trunk_version() === bbpress()->version )
+		if ( !function_exists( 'bbpress' ) || $this->get_latest_trunk_version() === bbpress()->version )
 			return $response;
 
 		$wpapi = maybe_unserialize( $response['body'] );
 
-		if ( !$wpapi )
+		if ( empty( $wpapi ) )
 			$wpapi = array();
 
 		$basename = bbpress()->basename;
@@ -49,15 +68,34 @@ class bbPress_beta_tester {
 		return $response;
 	}
 
+	/**
+	 * Add a warning message besides the upgrade notification
+	 * to warn the user about the risk of running trunk.
+	 */
 	function add_upgrade_warning() {
+		/* Need to check again for function_exists( 'bbpress' )
+		 * because after the plugin upgrade process this gets
+		 * excecuted _before_ the re-activation.
+		 */
 		if ( function_exists( 'bbpress' ) )
 			add_action( "in_plugin_update_message-" . bbpress()->basename, array( $this, 'beta_message' ), 10, 2 );
 	}
 
+	/**
+	 * Add the actual warning message
+	 * @param $plugin_data
+	 * @param $r
+	 */
 	function beta_message( $plugin_data, $r ) {
 		echo sprintf( ' <span style="color:red;">%s</span>', __( 'Warning: trunk version may break your site.', 'bbpress-beta-tester' ) );
 	}
 
+	/**
+	 * Get the latest bbpress main file from trunk and parse it to get
+	 * the latest tagged bleeding version code.
+	 *
+	 * @return null|string
+	 */
 	function get_latest_trunk_version() {
 
 		$svn_content = wp_remote_get( 'http://plugins.svn.wordpress.org/bbpress/trunk/bbpress.php' );
