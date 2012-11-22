@@ -26,6 +26,9 @@ class bbPress_beta_tester {
 		if ( $url !== 'http://api.wordpress.org/plugins/update-check/1.0/' || !function_exists( 'bbpress' ) )
 			return $response;
 
+		if ( $this->get_latest_trunk_version() === bbpress()->version )
+			return $response;
+
 		$wpapi = maybe_unserialize( $response['body'] );
 
 		if ( !$wpapi )
@@ -54,6 +57,26 @@ class bbPress_beta_tester {
 	function beta_message( $plugin_data, $r ) {
 		echo sprintf( ' <span style="color:red;">%s</span>', __( 'Warning: trunk version may break your site.', 'bbpress-beta-tester' ) );
 	}
+
+	function get_latest_trunk_version() {
+
+		$svn_content = wp_remote_get( 'http://plugins.svn.wordpress.org/bbpress/trunk/bbpress.php' );
+
+		if ( is_wp_error( $svn_content ) )
+			return null;
+
+		$bbpress_code = wp_remote_retrieve_body( $svn_content );
+		$bbpress_code = str_replace( "\r", "\n", $bbpress_code );
+
+		// Taken from get_file_data in wp-includes/functions.php
+		preg_match( '/^[ \t\/*#@]*Version:(.*)$/mi', $bbpress_code, $match );
+
+		if ( empty( $match[1] ) )
+			return null;
+
+		return _cleanup_header_comment( $match[1] );
+	}
+
 
 }
 
