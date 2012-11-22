@@ -5,8 +5,6 @@ Description: Lets you easily upgrade to the latest trunk version of bbPress.
 Version: 0.1
 Author: Daniel Dvorkin
 Author URI: http://twitter.com/MZAWeb
-
-Based on "Plugin beta tester" by mitcho (Michael Yoshitaka Erlewine)
 */
 
 
